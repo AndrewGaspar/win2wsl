@@ -15,7 +15,7 @@ fn convert_relative_path(path: &Path) -> String {
 
     for (index, component) in path.components().enumerate() {
         if index > 0 {
-            write!(&mut wsl_path, "/").expect("out failure");
+            write!(&mut wsl_path, "/").unwrap();
         }
 
         assert_ne!(
@@ -24,9 +24,9 @@ fn convert_relative_path(path: &Path) -> String {
             "TODO: Not sure how to resolve root directories"
         );
 
-        let comp_str = component.as_os_str().to_str().expect("");
+        let comp_str = component.as_os_str().to_str().unwrap();
 
-        write!(&mut wsl_path, "{}", comp_str).expect("out failure");
+        write!(&mut wsl_path, "{}", comp_str).unwrap();
     }
 
     wsl_path
@@ -44,17 +44,21 @@ fn convert_absolute_path(path: &Path) -> Option<String> {
         match index {
             0 => {
                 if let Component::Prefix(pre) = component {
-                    if let Prefix::Disk(disk) = pre.kind() {
-                        write!(
-                            &mut wsl_path,
-                            "{}",
-                            disk.to_ascii_lowercase() as char
-                        ).expect("out failure");
-                    } else {
-                        eprintln!(
-                            "Can only convert absolute paths that start with a drive letter."
-                        );
-                        return None;
+                    match pre.kind() {
+                        Prefix::Disk(disk) |
+                        Prefix::VerbatimDisk(disk) => {
+                            write!(
+                                &mut wsl_path,
+                                "{}",
+                                disk.to_ascii_lowercase() as char
+                            ).unwrap()
+                        }
+                        _ => {
+                            eprintln!(
+                                "Can only convert absolute paths that start with a drive letter."
+                            );
+                            return None;
+                        }
                     }
                 } else {
                     assert!(
@@ -65,8 +69,8 @@ fn convert_absolute_path(path: &Path) -> Option<String> {
             }
             1 => debug_assert_eq!(Component::RootDir, component),
             _ => {
-                let comp_str = component.as_os_str().to_str().expect("");
-                write!(&mut wsl_path, "/{}", comp_str).expect("out failure");
+                let comp_str = component.as_os_str().to_str().unwrap();
+                write!(&mut wsl_path, "/{}", comp_str).unwrap();
             }
         };
     }
@@ -116,6 +120,14 @@ fn test_absolute() {
     assert_eq!(
         "/mnt/c/foo/bar",
         convert_windows_path(Path::new("C:\\foo\\bar")).unwrap()
+    );
+}
+
+#[test]
+fn test_verbatim_absolute() {
+    assert_eq!(
+        "/mnt/c/foo/bar",
+        convert_windows_path(Path::new("\\\\?\\C:\\foo\\bar")).unwrap()
     );
 }
 
