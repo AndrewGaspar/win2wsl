@@ -2,52 +2,98 @@
 extern crate clap;
 
 use clap::*;
+use std::ascii::AsciiExt;
 use std::io::stdin;
-use std::path::{Component, Path};
+use std::path::{Component, Path, Prefix};
 
-fn convert_windows_path(path: &Path) -> String {
+fn convert_relative_path(path: &Path) -> String {
     use std::fmt::Write;
 
-    if path.is_relative() {
-        let mut wsl_path = String::new();
+    debug_assert!(path.is_relative());
 
-        for (index, component) in path.components().enumerate() {
-            if index > 0 {
-                write!(&mut wsl_path, "/").expect("out failure");
-            }
+    let mut wsl_path = String::new();
 
-            assert_ne!(
-                Component::RootDir,
-                component,
-                "TODO: Not sure how to resolve root directories"
-            );
-
-            let comp_str = component.as_os_str().to_str().expect("");
-
-            write!(&mut wsl_path, "{}", comp_str).expect("out failure");
+    for (index, component) in path.components().enumerate() {
+        if index > 0 {
+            write!(&mut wsl_path, "/").expect("out failure");
         }
 
-        wsl_path
+        assert_ne!(
+            Component::RootDir,
+            component,
+            "TODO: Not sure how to resolve root directories"
+        );
+
+        let comp_str = component.as_os_str().to_str().expect("");
+
+        write!(&mut wsl_path, "{}", comp_str).expect("out failure");
+    }
+
+    wsl_path
+}
+
+fn convert_absolute_path(path: &Path) -> Option<String> {
+    use std::fmt::Write;
+
+    debug_assert!(path.is_absolute());
+
+    let mut wsl_path = "/mnt/".to_string();
+
+    for (index, component) in path.components().enumerate() {
+
+        match index {
+            0 => {
+                if let Component::Prefix(pre) = component {
+                    if let Prefix::Disk(disk) = pre.kind() {
+                        write!(&mut wsl_path, "{}", disk.to_ascii_lowercase() as char)
+                            .expect("out failure");
+                    } else {
+                        eprintln!(
+                            "Can only convert absolute paths that start with a drive letter."
+                        );
+                        return None;
+                    }
+                } else {
+                    assert!(false, "Absolute Windows path must start with a Prefix");
+                }
+            }
+            1 => debug_assert_eq!(Component::RootDir, component),
+            _ => {
+                let comp_str = component.as_os_str().to_str().expect("");
+                write!(&mut wsl_path, "/{}", comp_str).expect("out failure");
+            }
+        };
+    }
+
+    Some(wsl_path)
+}
+
+fn convert_windows_path(path: &Path) -> Option<String> {
+    if path.is_relative() {
+        Some(convert_relative_path(path))
     } else {
-        unimplemented!();
+        convert_absolute_path(path)
     }
 }
 
 #[test]
 fn test_bare() {
-    assert_eq!("banana", convert_windows_path(Path::new("banana")));
+    assert_eq!("banana", convert_windows_path(Path::new("banana")).unwrap());
 }
 
 #[test]
 fn test_relative() {
-    assert_eq!("banana/foo", convert_windows_path(Path::new("banana\\foo")));
+    assert_eq!(
+        "banana/foo",
+        convert_windows_path(Path::new("banana\\foo")).unwrap()
+    );
 }
 
 #[test]
 fn test_cwd() {
     assert_eq!(
         "./banana/foo",
-        convert_windows_path(Path::new(".\\banana\\foo"))
+        convert_windows_path(Path::new(".\\banana\\foo")).unwrap()
     );
 }
 
@@ -55,7 +101,15 @@ fn test_cwd() {
 fn test_parent() {
     assert_eq!(
         "../banana/foo",
-        convert_windows_path(Path::new("..\\banana\\foo"))
+        convert_windows_path(Path::new("..\\banana\\foo")).unwrap()
+    );
+}
+
+#[test]
+fn test_absolute() {
+    assert_eq!(
+        "/mnt/c/foo/bar",
+        convert_windows_path(Path::new("C:\\foo\\bar")).unwrap()
     );
 }
 
@@ -76,6 +130,9 @@ fn main() {
         let mut line = String::new();
         stdin().read_line(&mut line).expect("stdin terminated");
 
-        println!("{}", convert_windows_path(&Path::new(&line)));
+        match convert_windows_path(&Path::new(&line)) {
+            Some(path) => println!("{}", path),
+            None => println!("{}", line),
+        }
     }
 }
