@@ -40,31 +40,33 @@ fn convert_absolute_path(path: &Path) -> Option<String> {
     let mut wsl_path = "/mnt/".to_string();
 
     for (index, component) in path.components().enumerate() {
-
         match index {
             0 => {
-                if let Component::Prefix(pre) = component {
-                    match pre.kind() {
-                        Prefix::Disk(disk) |
-                        Prefix::VerbatimDisk(disk) => {
-                            write!(
-                                &mut wsl_path,
-                                "{}",
-                                disk.to_ascii_lowercase() as char
-                            ).unwrap()
-                        }
-                        _ => {
-                            eprintln!(
-                                "Can only convert absolute paths that start with a drive letter."
-                            );
-                            return None;
+                match component {
+                    Component::Prefix(pre) => {
+                        match pre.kind() {
+                            Prefix::Disk(disk) |
+                            Prefix::VerbatimDisk(disk) => {
+                                write!(
+                                    &mut wsl_path,
+                                    "{}",
+                                    disk.to_ascii_lowercase() as char
+                                ).unwrap()
+                            }
+                            _ => {
+                                eprintln!(
+                                    "Can only convert absolute paths that start with a drive letter."
+                                );
+                                return None;
+                            }
                         }
                     }
-                } else {
-                    assert!(
-                        false,
-                        "Absolute Windows path must start with a Prefix"
-                    );
+                    _ => {
+                        assert!(
+                            false,
+                            "Absolute Windows path must start with a Prefix"
+                        )
+                    }
                 }
             }
             1 => debug_assert_eq!(Component::RootDir, component),
@@ -139,6 +141,7 @@ fn no_network_paths() {
     );
 }
 
+#[cfg(windows)]
 fn main() {
     App::new("win2wsl")
         .version(crate_version!())
