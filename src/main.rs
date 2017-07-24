@@ -45,8 +45,11 @@ fn convert_absolute_path(path: &Path) -> Option<String> {
             0 => {
                 if let Component::Prefix(pre) = component {
                     if let Prefix::Disk(disk) = pre.kind() {
-                        write!(&mut wsl_path, "{}", disk.to_ascii_lowercase() as char)
-                            .expect("out failure");
+                        write!(
+                            &mut wsl_path,
+                            "{}",
+                            disk.to_ascii_lowercase() as char
+                        ).expect("out failure");
                     } else {
                         eprintln!(
                             "Can only convert absolute paths that start with a drive letter."
@@ -54,7 +57,10 @@ fn convert_absolute_path(path: &Path) -> Option<String> {
                         return None;
                     }
                 } else {
-                    assert!(false, "Absolute Windows path must start with a Prefix");
+                    assert!(
+                        false,
+                        "Absolute Windows path must start with a Prefix"
+                    );
                 }
             }
             1 => debug_assert_eq!(Component::RootDir, component),
