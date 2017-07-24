@@ -113,6 +113,14 @@ fn test_absolute() {
     );
 }
 
+#[test]
+fn no_network_paths() {
+    assert_eq!(
+        None,
+        convert_windows_path(Path::new("\\\\net-comp\\netshare\\file\\path.txt"))
+    );
+}
+
 fn main() {
     App::new("win2wsl")
         .version(crate_version!())
